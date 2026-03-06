@@ -2,6 +2,8 @@
 
 Interactive Mandelbrot set explorer running in the browser. Rust (compiled to WebAssembly) computes every pixel; TypeScript and WebGL2 display the result.
 
+![Screenshot](Screenshot_20260306_104927.png)
+
 ## Architecture
 
 ```
