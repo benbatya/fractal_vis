@@ -1,0 +1,29 @@
+# Build outputs
+dist/
+pkg/
+target/
+
+# Dependencies
+node_modules/
+
+# Lock files (keep package-lock.json but ignore Cargo.lock for libraries)
+# Cargo.lock is intentionally tracked for binaries; remove this line if that changes
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Editor & OS
+.claude/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
