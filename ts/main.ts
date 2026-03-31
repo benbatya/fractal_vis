@@ -1,11 +1,11 @@
-import init, { Fractal } from '../pkg/fractal_vis.js';
+import init from '../pkg/fractal_vis.js';
 import { Renderer } from './renderer.js';
 import { ViewState, defaultView } from './view.js';
 import { attachInputHandlers } from './input.js';
 
 async function main() {
-  // Load WASM; the returned object exposes wasm.memory
-  const wasm = await init();
+  // Initialize WASM module (required for wasm-bindgen init, even though GPU renders directly)
+  await init();
 
   const canvas = document.getElementById('glcanvas') as HTMLCanvasElement;
   const renderer = new Renderer(canvas);
@@ -14,14 +14,7 @@ async function main() {
   let W = 0;
   let H = 0;
 
-  let fractal: Fractal | null = null;
   let view: ViewState = defaultView(1); // placeholder; overwritten on first resize
-
-  // Re-create the pixel view each frame to guard against ArrayBuffer detachment
-  // that occurs when WASM linear memory grows (e.g. during fractal.resize()).
-  function makePixelView(): Uint8ClampedArray {
-    return new Uint8ClampedArray(wasm.memory.buffer, fractal!.ptr(), W * H * 4);
-  }
 
   let dirty = true;
   let rafId = 0;
@@ -68,12 +61,12 @@ async function main() {
   function renderFrame(now: number) {
     rafId = 0;
     updateFps(now);
-    if (!fractal || !dirty) return;
+    if (!dirty) return;
     dirty = false;
 
     const t0 = performance.now();
-    fractal.render(view.centerRe, view.centerIm, view.scale);
-    renderer.draw(makePixelView(), W, H);
+    // GPU renders directly — Mandelbrot computed in WebGL2 fragment shader
+    renderer.render(view.centerRe, view.centerIm, view.scale, W, H);
     lastDrawMs = performance.now() - t0;
 
     if (drawDurations.length >= DRAW_SAMPLES) drawDurations.shift();
@@ -94,12 +87,7 @@ async function main() {
     canvas.width = W;
     canvas.height = H;
 
-    if (!fractal) {
-      fractal = new Fractal(W, H);
-      view = defaultView(W);
-    } else {
-      fractal.resize(W, H);
-    }
+    view = defaultView(W);
 
     renderer.resize(W, H);
     dirty = true;
