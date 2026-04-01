@@ -6,11 +6,13 @@ export function attachInputHandlers(
   setView: (v: ViewState) => void,
   requestFrame: () => void,
 ): void {
+  const dpr = window.devicePixelRatio ?? 1;
+
   // Zoom on scroll wheel, centered on cursor
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
-    setView(zoom(getView(), e.offsetX, e.offsetY, canvas.width, canvas.height, factor));
+    setView(zoom(getView(), e.offsetX * dpr, e.offsetY * dpr, canvas.width, canvas.height, factor));
     requestFrame();
   }, { passive: false });
 
@@ -29,7 +31,7 @@ export function attachInputHandlers(
   // Attach move/up to window so dragging outside the canvas doesn't get stuck
   window.addEventListener('mousemove', (e) => {
     if (!dragging) return;
-    setView(pan(getView(), e.clientX - lastX, e.clientY - lastY));
+    setView(pan(getView(), (e.clientX - lastX) * dpr, (e.clientY - lastY) * dpr));
     lastX = e.clientX;
     lastY = e.clientY;
     requestFrame();
