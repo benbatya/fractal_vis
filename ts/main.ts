@@ -32,10 +32,17 @@ async function main() {
   let paused = false;
 
   const tsecEl = document.getElementById('tsec-display')!;
+  const tsecSlider = document.getElementById('tsec-slider') as HTMLInputElement;
   const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
   pauseBtn.addEventListener('click', () => {
     paused = !paused;
     pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    tsecSlider.disabled = !paused;
+  });
+  tsecSlider.addEventListener('input', () => {
+    if (paused) {
+      tSec = Math.min(1, Math.max(0, parseFloat(tsecSlider.value)));
+    }
   });
 
   function updateFps(now: number) {
@@ -73,6 +80,7 @@ async function main() {
     if (!paused) {
       tSec += 1 / 600;
       if (tSec > 1) tSec = 0;
+      tsecSlider.value = String(tSec);
     }
     tsecEl.textContent = `t ${tSec.toFixed(4)}`;
     const omega = (2 * Math.PI);

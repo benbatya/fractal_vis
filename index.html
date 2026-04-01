@@ -20,20 +20,16 @@
     }
     #fps { top: 12px; }
     #draw-time { top: 36px; }
-    #tsec-display {
+#controls {
       position: fixed;
       bottom: 12px;
       right: 12px;
-      color: #fff;
-      font: 600 13px/1.5 monospace;
-      text-shadow: 0 1px 3px #000, 0 0 6px #000;
-      pointer-events: none;
-      user-select: none;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
     }
     #pause-btn {
-      position: fixed;
-      bottom: 36px;
-      right: 12px;
       font: 600 13px/1.5 monospace;
       background: rgba(0,0,0,0.5);
       color: #fff;
@@ -43,14 +39,29 @@
       border-radius: 3px;
     }
     #pause-btn:hover { background: rgba(255,255,255,0.15); }
+    #tsec-display {
+      color: #fff;
+      font: 600 13px/1.5 monospace;
+      text-shadow: 0 1px 3px #000, 0 0 6px #000;
+      pointer-events: none;
+      user-select: none;
+    }
+    #tsec-slider {
+      width: 140px;
+      cursor: pointer;
+    }
+    #tsec-slider:disabled { opacity: 0.4; cursor: default; }
   </style>
 </head>
 <body>
   <canvas id="glcanvas"></canvas>
   <div id="fps"></div>
   <div id="draw-time"></div>
-  <button id="pause-btn">Pause</button>
-  <div id="tsec-display"></div>
+  <div id="controls">
+    <button id="pause-btn">Pause</button>
+    <div id="tsec-display"></div>
+    <input id="tsec-slider" type="range" min="0" max="1" step="0.0001" value="0" disabled />
+  </div>
   <script type="module" src="/ts/main.ts"></script>
 </body>
 </html>
