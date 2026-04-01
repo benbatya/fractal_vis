@@ -28,7 +28,7 @@ async function main() {
   const drawTimeEl = document.getElementById('draw-time')!;
   const drawDurations: number[] = [];
   let lastDrawMs = 0;
-  let tSec = -1;
+  let tSec = 0;
   let paused = false;
 
   const tsecEl = document.getElementById('tsec-display')!;
@@ -71,8 +71,8 @@ async function main() {
     updateFps(now);
 
     if (!paused) {
-      tSec += 1 / 500;
-      if (tSec > 1) tSec = -1;
+      tSec += 1 / 600;
+      if (tSec > 1) tSec = 0;
     }
     tsecEl.textContent = `t ${tSec.toFixed(4)}`;
     const omega = (2 * Math.PI);
