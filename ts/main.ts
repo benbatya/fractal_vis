@@ -16,7 +16,6 @@ async function main() {
 
   let view: ViewState = defaultView(1); // placeholder; overwritten on first resize
 
-  let dirty = true;
   let rafId = 0;
 
   // FPS tracking — rolling window of frame timestamps over the last 10 seconds
@@ -59,14 +58,17 @@ async function main() {
   }
 
   function renderFrame(now: number) {
-    rafId = 0;
+    rafId = requestAnimationFrame(renderFrame);
     updateFps(now);
-    if (!dirty) return;
-    dirty = false;
+
+    const tSec = now / 1000;
+    const omega = (2 * Math.PI) / 10;
+    const cRe = 0.7511 * Math.cos(omega * tSec);
+    const cIm = 0.7511 * Math.sin(omega * tSec);
 
     const t0 = performance.now();
-    // GPU renders directly — Mandelbrot computed in WebGL2 fragment shader
-    renderer.render(view.centerRe, view.centerIm, view.scale, W, H);
+    // GPU renders directly — Julia set computed in WebGL2 fragment shader
+    renderer.render(view.centerRe, view.centerIm, view.scale, W, H, cRe, cIm);
     lastDrawMs = performance.now() - t0;
 
     if (drawDurations.length >= DRAW_SAMPLES) drawDurations.shift();
@@ -90,7 +92,6 @@ async function main() {
     view = defaultView(W);
 
     renderer.resize(W, H);
-    dirty = true;
     scheduleFrame();
   }
 
@@ -100,7 +101,7 @@ async function main() {
   attachInputHandlers(
     canvas,
     () => view,
-    (v) => { view = v; dirty = true; },
+    (v) => { view = v; },
     scheduleFrame,
   );
 }

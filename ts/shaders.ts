@@ -32,6 +32,7 @@ out vec4 fragColor;
 uniform vec2  u_center;
 uniform float u_scale;
 uniform vec2  u_resolution;
+uniform vec2  u_c;
 
 void main() {
   // Map UV to complex plane coordinates
@@ -40,8 +41,8 @@ void main() {
   float re = u_center.x + (uv.x - 0.5) * u_resolution.x * u_scale;
   float im = u_center.y - (uv.y - 0.5) * u_resolution.y * u_scale;
 
-  vec2 c = vec2(re, im);
-  vec2 z = vec2(0.0);
+  vec2 z = vec2(re, im);
+  vec2 c = u_c;
   const int MAX_ITER = 256;
   float iter = 0.0;
 

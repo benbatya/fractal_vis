@@ -6,9 +6,9 @@ export interface ViewState {
 
 export function defaultView(canvasWidth: number): ViewState {
   return {
-    centerRe: -0.5,
+    centerRe: 0.0,
     centerIm: 0.0,
-    scale: 3.0 / canvasWidth,
+    scale: 4.0 / canvasWidth,
   };
 }
 

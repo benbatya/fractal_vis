@@ -6,6 +6,7 @@ export class Renderer {
   private uCenter: WebGLUniformLocation;
   private uScale: WebGLUniformLocation;
   private uResolution: WebGLUniformLocation;
+  private uC: WebGLUniformLocation;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2');
@@ -18,17 +19,19 @@ export class Renderer {
     this.uCenter     = gl.getUniformLocation(this.program, 'u_center')!;
     this.uScale      = gl.getUniformLocation(this.program, 'u_scale')!;
     this.uResolution = gl.getUniformLocation(this.program, 'u_resolution')!;
+    this.uC          = gl.getUniformLocation(this.program, 'u_c')!;
   }
 
   resize(width: number, height: number): void {
     this.gl.viewport(0, 0, width, height);
   }
 
-  render(centerRe: number, centerIm: number, scale: number, width: number, height: number): void {
+  render(centerRe: number, centerIm: number, scale: number, width: number, height: number, cRe: number, cIm: number): void {
     const gl = this.gl;
     gl.uniform2f(this.uCenter, centerRe, centerIm);
     gl.uniform1f(this.uScale, scale);
     gl.uniform2f(this.uResolution, width, height);
+    gl.uniform2f(this.uC, cRe, cIm);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
