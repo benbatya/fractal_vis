@@ -28,6 +28,15 @@ async function main() {
   const drawTimeEl = document.getElementById('draw-time')!;
   const drawDurations: number[] = [];
   let lastDrawMs = 0;
+  let tSec = -1;
+  let paused = false;
+
+  const tsecEl = document.getElementById('tsec-display')!;
+  const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
+  pauseBtn.addEventListener('click', () => {
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  });
 
   function updateFps(now: number) {
     frameTimes.push(now);
@@ -61,8 +70,12 @@ async function main() {
     rafId = requestAnimationFrame(renderFrame);
     updateFps(now);
 
-    const tSec = now / 1000;
-    const omega = (2 * Math.PI) / 10;
+    if (!paused) {
+      tSec += 1 / 500;
+      if (tSec > 1) tSec = -1;
+    }
+    tsecEl.textContent = `t ${tSec.toFixed(4)}`;
+    const omega = (2 * Math.PI);
     const cRe = 0.7511 * Math.cos(omega * tSec);
     const cIm = 0.7511 * Math.sin(omega * tSec);
 

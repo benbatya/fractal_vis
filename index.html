@@ -20,12 +20,37 @@
     }
     #fps { top: 12px; }
     #draw-time { top: 36px; }
+    #tsec-display {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      color: #fff;
+      font: 600 13px/1.5 monospace;
+      text-shadow: 0 1px 3px #000, 0 0 6px #000;
+      pointer-events: none;
+      user-select: none;
+    }
+    #pause-btn {
+      position: fixed;
+      bottom: 36px;
+      right: 12px;
+      font: 600 13px/1.5 monospace;
+      background: rgba(0,0,0,0.5);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 2px 10px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    #pause-btn:hover { background: rgba(255,255,255,0.15); }
   </style>
 </head>
 <body>
   <canvas id="glcanvas"></canvas>
   <div id="fps"></div>
   <div id="draw-time"></div>
+  <button id="pause-btn">Pause</button>
+  <div id="tsec-display"></div>
   <script type="module" src="/ts/main.ts"></script>
 </body>
 </html>
