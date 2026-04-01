@@ -1,91 +1,85 @@
 use wasm_bindgen::prelude::*;
+use dashu_float::DBig;
 
-const MAX_ITER: u32 = 256;
+const MAX_ITER: usize = 256;
 
 #[wasm_bindgen]
-pub struct Fractal {
-    width: u32,
-    height: u32,
-    buf: Vec<u8>,
+pub struct OrbitBuffer {
+    data: Vec<f32>,
+    len: usize,
 }
 
 #[wasm_bindgen]
-impl Fractal {
+impl OrbitBuffer {
     #[wasm_bindgen(constructor)]
-    pub fn new(width: u32, height: u32) -> Fractal {
-        let buf = vec![0u8; (width * height * 4) as usize];
-        Fractal { width, height, buf }
-    }
-
-    pub fn ptr(&self) -> u32 {
-        self.buf.as_ptr() as u32
-    }
-
-    pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.height
-    }
-
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.width = width;
-        self.height = height;
-        self.buf.resize((width * height * 4) as usize, 0);
-    }
-
-    pub fn render(&mut self, center_re: f64, center_im: f64, scale: f64) {
-        let w = self.width;
-        let h = self.height;
-        let half_w = w as f64 / 2.0;
-        let half_h = h as f64 / 2.0;
-
-        for py in 0..h {
-            for px in 0..w {
-                let c_re = center_re + (px as f64 - half_w) * scale;
-                let c_im = center_im - (py as f64 - half_h) * scale;
-
-                let (r, g, b) = mandelbrot(c_re, c_im);
-
-                let idx = ((py * w + px) * 4) as usize;
-                self.buf[idx]     = r;
-                self.buf[idx + 1] = g;
-                self.buf[idx + 2] = b;
-                self.buf[idx + 3] = 255;
-            }
+    pub fn new() -> OrbitBuffer {
+        OrbitBuffer {
+            data: vec![0.0f32; MAX_ITER * 2],
+            len: 0,
         }
     }
-}
 
-fn mandelbrot(c_re: f64, c_im: f64) -> (u8, u8, u8) {
-    let mut z_re = 0.0f64;
-    let mut z_im = 0.0f64;
-    let mut iter = 0u32;
-
-    while z_re * z_re + z_im * z_im <= 4.0 && iter < MAX_ITER {
-        let z_re_new = z_re * z_re - z_im * z_im + c_re;
-        z_im = 2.0 * z_re * z_im + c_im;
-        z_re = z_re_new;
-        iter += 1;
+    pub fn ptr(&self) -> *const f32 {
+        self.data.as_ptr()
     }
 
-    if iter == MAX_ITER {
-        return (0, 0, 0);
+    pub fn len(&self) -> usize {
+        self.len
     }
 
-    // Smooth / renormalized iteration count to avoid banding
-    let log_zn = (z_re * z_re + z_im * z_im).ln() / 2.0;
-    let nu = (log_zn / 2f64.ln()).ln() / 2f64.ln();
-    let t = (iter as f64 + 1.0 - nu) / MAX_ITER as f64;
+    /// Compute reference orbit with arbitrary precision.
+    /// Coordinates are decimal strings. Precision is in bits —
+    /// converted internally to decimal digits for DBig (base-10).
+    pub fn compute(
+        &mut self,
+        center_re: &str,
+        center_im: &str,
+        c_re: &str,
+        c_im: &str,
+        precision: usize,
+    ) {
+        // Convert bit precision to decimal digits: digits = ceil(bits * log10(2))
+        let p = ((precision as f64) * 0.30103).ceil() as usize;
+        let p = p.max(20);
 
-    palette(t.fract())
-}
+        let parse = |s: &str| -> DBig {
+            s.parse::<DBig>()
+                .unwrap_or(DBig::ZERO)
+                .with_precision(p)
+                .value()
+        };
 
-fn palette(t: f64) -> (u8, u8, u8) {
-    use std::f64::consts::TAU;
-    let r = (0.5 + 0.5 * (TAU * t).cos()) * 255.0;
-    let g = (0.5 + 0.5 * (TAU * (t + 0.33)).cos()) * 255.0;
-    let b = (0.5 + 0.5 * (TAU * (t + 0.67)).cos()) * 255.0;
-    (r as u8, g as u8, b as u8)
+        let mut z_re = parse(center_re);
+        let mut z_im = parse(center_im);
+        let c_re = parse(c_re);
+        let c_im = parse(c_im);
+        let four: DBig = DBig::from(4).with_precision(p).value();
+        let two: DBig = DBig::from(2).with_precision(p).value();
+
+        self.len = MAX_ITER;
+
+        for i in 0..MAX_ITER {
+            // Store orbit point as f32 for GPU texture upload
+            let re_f64: f64 = z_re.to_f64().value();
+            let im_f64: f64 = z_im.to_f64().value();
+            self.data[i * 2] = re_f64 as f32;
+            self.data[i * 2 + 1] = im_f64 as f32;
+
+            // Escape check: |z|² > 4
+            let re_sq = (&z_re * &z_re).with_precision(p).value();
+            let im_sq = (&z_im * &z_im).with_precision(p).value();
+            let mag_sq = (&re_sq + &im_sq).with_precision(p).value();
+
+            if mag_sq > four {
+                self.len = i + 1;
+                break;
+            }
+
+            // z = z² + c
+            let new_re = (&re_sq - &im_sq + &c_re).with_precision(p).value();
+            let new_im = (&two * &z_re * &z_im + &c_im).with_precision(p).value();
+            z_re = new_re;
+            z_im = new_im;
+        }
+    }
 }

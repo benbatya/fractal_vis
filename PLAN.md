@@ -1,18 +1,18 @@
-# Plan: Rust + WASM Arbitrary-Precision Orbit Calculation with `astro-float`
+# Plan: Rust + WASM Arbitrary-Precision Orbit Calculation with `dashu-float`
 
 ## Context
 
 The fractal visualizer uses perturbation theory: a single **reference orbit** is computed on the CPU, then the GPU applies per-pixel delta perturbations. Currently the reference orbit is computed in TypeScript (`ts/orbit.ts`) using JS `f64` — this limits deep-zoom precision to ~15 decimal digits. Beyond that, the reference orbit accumulates rounding error and the image breaks down.
 
-By moving the orbit computation to Rust/WASM with arbitrary-precision floats (`astro-float::BigFloat`), the reference orbit can maintain accuracy at any zoom depth. The GPU shader (which uses `float32` perturbation deltas) remains unchanged — only the CPU-side reference orbit gains precision.
+By moving the orbit computation to Rust/WASM with arbitrary-precision floats (`dashu_float::FBig`), the reference orbit can maintain accuracy at any zoom depth. The GPU shader (which uses `float32` perturbation deltas) remains unchanged — only the CPU-side reference orbit gains precision.
 
-**Why `astro-float`?** Pure Rust, no C dependencies, compiles cleanly to `wasm32-unknown-unknown`. Provides `BigFloat` with configurable bit-precision and all needed arithmetic. Chosen over `rug` (GMP wrapper, won't cross-compile to WASM) and `dashu`.
+**Why `dashu-float`?** Pure Rust, no C dependencies, compiles cleanly to `wasm32-unknown-unknown`. Provides `FBig` (arbitrary-precision float) with configurable precision and all needed arithmetic. Part of the `dashu` ecosystem. Chosen over `rug` (GMP wrapper, won't cross-compile to WASM) and `astro-float`.
 
 ## Files to Modify
 
 | File | Action |
 |------|--------|
-| `Cargo.toml` | Add `astro-float` dependency |
+| `Cargo.toml` | Add `dashu-float` dependency |
 | `src/lib.rs` | Replace old `Fractal` struct with `OrbitBuffer` using `BigFloat` |
 | `ts/main.ts` | Switch from `computeOrbit()` to WASM `OrbitBuffer.compute()` |
 | `ts/orbit.ts` | Keep as fallback/reference (no changes) |
@@ -22,12 +22,12 @@ By moving the orbit computation to Rust/WASM with arbitrary-precision floats (`a
 
 ## Step 1: Update `Cargo.toml`
 
-Add `astro-float` with std feature (wasm-pack supports std):
+Add `dashu-float` with std feature (wasm-pack supports std):
 
 ```toml
 [dependencies]
 wasm-bindgen = "0.2"
-astro-float = "0.9"
+dashu-float = "0.4"
 ```
 
 ## Step 2: Rewrite `src/lib.rs`
@@ -39,10 +39,10 @@ Replace the unused `Fractal` CPU renderer with an `OrbitBuffer` struct that:
 
 ```rust
 use wasm_bindgen::prelude::*;
-use astro_float::{BigFloat, Consts, RoundingMode};
+use dashu_float::FBig;
+use dashu_float::round::mode::Zero;
 
 const MAX_ITER: usize = 256;
-const RM: RoundingMode = RoundingMode::None; // defer rounding for perf
 
 #[wasm_bindgen]
 pub struct OrbitBuffer {
@@ -78,39 +78,43 @@ impl OrbitBuffer {
         c_im: &str,
         precision: usize,
     ) {
-        let mut cc = Consts::new().unwrap();
         let p = precision;
+        let ctx = dashu_float::Context::<Zero>::new(p);
 
-        let mut z_re: BigFloat = center_re.parse().unwrap_or(BigFloat::from_f64(0.0, p));
-        let mut z_im: BigFloat = center_im.parse().unwrap_or(BigFloat::from_f64(0.0, p));
-        let c_re: BigFloat = c_re.parse().unwrap_or(BigFloat::from_f64(0.0, p));
-        let c_im: BigFloat = c_im.parse().unwrap_or(BigFloat::from_f64(0.0, p));
-        let four = BigFloat::from_f64(4.0, p);
-        let two = BigFloat::from_f64(2.0, p);
+        let parse = |s: &str| -> FBig {
+            s.parse::<FBig>().unwrap_or(FBig::ZERO).with_precision(p).value()
+        };
+
+        let mut z_re = parse(center_re);
+        let mut z_im = parse(center_im);
+        let c_re = parse(c_re);
+        let c_im = parse(c_im);
+        let four = FBig::from(4).with_precision(p).value();
+        let two = FBig::from(2).with_precision(p).value();
 
         self.len = MAX_ITER;
 
         for i in 0..MAX_ITER {
             // Store orbit point as f32 for GPU texture upload
-            // BigFloat → f64 → f32
-            let re_f64 = f64::try_from(z_re.clone()).unwrap_or(0.0);
-            let im_f64 = f64::try_from(z_im.clone()).unwrap_or(0.0);
+            // FBig → f64 → f32
+            let re_f64: f64 = z_re.to_f64().value();
+            let im_f64: f64 = z_im.to_f64().value();
             self.data[i * 2]     = re_f64 as f32;
             self.data[i * 2 + 1] = im_f64 as f32;
 
             // Escape check: |z|² > 4
-            let re_sq = z_re.mul(&z_re, p, RM);
-            let im_sq = z_im.mul(&z_im, p, RM);
-            let mag_sq = re_sq.add(&im_sq, p, RM);
+            let re_sq = ctx.mul(&z_re, &z_re).value();
+            let im_sq = ctx.mul(&z_im, &z_im).value();
+            let mag_sq = ctx.add(&re_sq, &im_sq).value();
 
-            if mag_sq.cmp(&four) == Some(std::cmp::Ordering::Greater) {
+            if mag_sq > four {
                 self.len = i + 1;
                 break;
             }
 
             // z = z² + c
-            let new_re = re_sq.sub(&im_sq, p, RM).add(&c_re, p, RM);
-            let new_im = two.mul(&z_re, p, RM).mul(&z_im, p, RM).add(&c_im, p, RM);
+            let new_re = ctx.add(&ctx.sub(&re_sq, &im_sq).value(), &c_re).value();
+            let new_im = ctx.add(&ctx.mul(&ctx.mul(&two, &z_re).value(), &z_im).value(), &c_im).value();
             z_re = new_re;
             z_im = new_im;
         }
@@ -121,11 +125,11 @@ impl OrbitBuffer {
 **Key design decisions:**
 - `OrbitBuffer` is allocated once in JS, reused every frame — no per-frame heap churn
 - `ptr()` returns pointer to the `Vec<f32>` in WASM linear memory — JS wraps it as `Float32Array` with zero copy
-- `RoundingMode::None` during iteration for performance; precision bits provide the accuracy
-- `BigFloat → f64` via `TryFrom` (need to verify exact API; may need `.to_f64()` or string round-trip)
+- `dashu-float` uses `Context` with rounding modes for arithmetic operations, and `FBig` as the float type
+- `FBig → f64` via `.to_f64().value()`
 - String inputs because JS `number` can't represent arbitrary-precision values
 
-**Note:** The exact `BigFloat → f64` conversion API needs verification during implementation. If `TryFrom<BigFloat> for f64` isn't available, alternatives are: `.to_f64()` method, or formatting to string and parsing.
+**Note:** The exact `dashu-float` API may vary by version. The `Context`-based arithmetic and `FBig` type shown here follow the `0.4.x` API. Verify against docs during implementation.
 
 ## Step 3: Update `ts/main.ts`
 
@@ -164,7 +168,7 @@ const len = orbitBuf.len();
 
 ## Step 4: Build & Verify
 
-1. Run `npm run wasm` — confirm `astro-float` compiles to WASM without errors
+1. Run `npm run wasm` — confirm `dashu-float` compiles to WASM without errors
 2. Run `npm run dev` — confirm the app loads and renders
 3. Visual check: at default zoom, rendering should be identical to before
 4. Check FPS/draw-time HUD — orbit computation will be slower than f64 but should stay under ~5ms at 64-bit precision

@@ -1,15 +1,15 @@
-import init from '../pkg/fractal_vis.js';
+import init, { OrbitBuffer } from '../pkg/fractal_vis.js';
 import { Renderer } from './renderer.js';
 import { ViewState, defaultView } from './view.js';
 import { attachInputHandlers } from './input.js';
-import { computeOrbit } from './orbit.js';
 
 async function main() {
-  // Initialize WASM module (required for wasm-bindgen init, even though GPU renders directly)
-  await init();
+  // Initialize WASM module and get access to linear memory
+  const wasm = await init();
 
   const canvas = document.getElementById('glcanvas') as HTMLCanvasElement;
   const renderer = new Renderer(canvas);
+  const orbitBuf = new OrbitBuffer();
 
   const dpr = window.devicePixelRatio ?? 1;
   let W = 0;
@@ -88,7 +88,20 @@ async function main() {
     const cRe = 0.7511 * Math.cos(omega * tSec);
     const cIm = 0.7511 * Math.sin(omega * tSec);
 
-    const { orbit, len } = computeOrbit(view.centerRe, view.centerIm, cRe, cIm);
+    const precision = Math.max(64, Math.ceil(-Math.log2(view.scale)) + 32);
+    orbitBuf.compute(
+      view.centerRe.toString(),
+      view.centerIm.toString(),
+      cRe.toString(),
+      cIm.toString(),
+      precision,
+    );
+    const orbit = new Float32Array(
+      wasm.memory.buffer,
+      orbitBuf.ptr(),
+      256 * 2,
+    );
+    const len = orbitBuf.len();
     const t0 = performance.now();
     renderer.render(view.scale, W, H, cRe, cIm, orbit, len);
     lastDrawMs = performance.now() - t0;
