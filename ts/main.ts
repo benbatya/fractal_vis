@@ -2,6 +2,7 @@ import init from '../pkg/fractal_vis.js';
 import { Renderer } from './renderer.js';
 import { ViewState, defaultView } from './view.js';
 import { attachInputHandlers } from './input.js';
+import { computeOrbit } from './orbit.js';
 
 async function main() {
   // Initialize WASM module (required for wasm-bindgen init, even though GPU renders directly)
@@ -87,9 +88,9 @@ async function main() {
     const cRe = 0.7511 * Math.cos(omega * tSec);
     const cIm = 0.7511 * Math.sin(omega * tSec);
 
+    const { orbit, len } = computeOrbit(view.centerRe, view.centerIm, cRe, cIm);
     const t0 = performance.now();
-    // GPU renders directly — Julia set computed in WebGL2 fragment shader
-    renderer.render(view.centerRe, view.centerIm, view.scale, W, H, cRe, cIm);
+    renderer.render(view.scale, W, H, cRe, cIm, orbit, len);
     lastDrawMs = performance.now() - t0;
 
     if (drawDurations.length >= DRAW_SAMPLES) drawDurations.shift();
