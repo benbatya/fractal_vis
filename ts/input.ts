@@ -1,10 +1,8 @@
-import { ViewState } from './view.js';
-import { pan_view, zoom_view } from '../pkg/fractal_vis.js';
+import { WasmViewState } from '../pkg/fractal_vis.js';
 
 export function attachInputHandlers(
   canvas: HTMLCanvasElement,
-  getView: () => ViewState,
-  setView: (v: ViewState) => void,
+  viewState: WasmViewState,
   requestFrame: () => void,
 ): void {
   const dpr = window.devicePixelRatio ?? 1;
@@ -12,16 +10,12 @@ export function attachInputHandlers(
   // Zoom on scroll wheel, centered on cursor
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const v = getView();
     const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1;
-    const result = zoom_view(
-      v.centerRe, v.centerIm, v.scale,
+    viewState.zoom(
       e.offsetX * dpr, e.offsetY * dpr,
       canvas.width, canvas.height,
       factor,
     );
-    setView({ centerRe: result.re, centerIm: result.im, scale: result.scale });
-    result.free();
     requestFrame();
   }, { passive: false });
 
@@ -40,14 +34,10 @@ export function attachInputHandlers(
   // Attach move/up to window so dragging outside the canvas doesn't get stuck
   window.addEventListener('mousemove', (e) => {
     if (!dragging) return;
-    const v = getView();
-    const result = pan_view(
-      v.centerRe, v.centerIm, v.scale,
+    viewState.pan(
       (e.clientX - lastX) * dpr,
       (e.clientY - lastY) * dpr,
     );
-    setView({ centerRe: result.re, centerIm: result.im, scale: result.scale });
-    result.free();
     lastX = e.clientX;
     lastY = e.clientY;
     requestFrame();

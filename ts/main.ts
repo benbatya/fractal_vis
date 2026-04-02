@@ -1,6 +1,5 @@
-import init, { OrbitBuffer } from '../pkg/fractal_vis.js';
+import init, { WasmViewState } from '../pkg/fractal_vis.js';
 import { Renderer } from './renderer.js';
-import { ViewState, defaultView } from './view.js';
 import { attachInputHandlers } from './input.js';
 
 async function main() {
@@ -9,13 +8,12 @@ async function main() {
 
   const canvas = document.getElementById('glcanvas') as HTMLCanvasElement;
   const renderer = new Renderer(canvas);
-  const orbitBuf = new OrbitBuffer();
 
   const dpr = window.devicePixelRatio ?? 1;
   let W = 0;
   let H = 0;
 
-  let view: ViewState = defaultView(1); // placeholder; overwritten on first resize
+  let viewState: WasmViewState = new WasmViewState(1); // placeholder; overwritten on first resize
 
   let rafId = 0;
 
@@ -33,8 +31,7 @@ async function main() {
   let paused = false;
 
   // Orbit cache — skip WASM recomputation when inputs haven't changed
-  let cachedCenterRe = '';
-  let cachedCenterIm = '';
+  let cachedGeneration = 0;
   let cachedCRe = NaN;
   let cachedCIm = NaN;
   let cachedPrecision = 0;
@@ -55,7 +52,7 @@ async function main() {
   });
   const resetViewBtn = document.getElementById('reset-view-btn') as HTMLButtonElement;
   resetViewBtn.addEventListener('click', () => {
-    view = defaultView(W);
+    viewState.reset(W);
   });
 
   function updateFps(now: number) {
@@ -96,30 +93,22 @@ async function main() {
       tsecSlider.value = String(tSec);
     }
     tsecEl.textContent = `t ${tSec.toFixed(4)}`;
-    viewInfoEl.textContent = `re ${view.centerRe}\nim ${view.centerIm}\nscale ${view.scale.toExponential(4)}`;
+    viewInfoEl.textContent = `re ${viewState.center_re_str()}\nim ${viewState.center_im_str()}\nscale ${viewState.scale.toExponential(4)}`;
     const omega = (2 * Math.PI);
     const cRe = 0.7511 * Math.cos(omega * tSec);
     const cIm = 0.7511 * Math.sin(omega * tSec);
 
-    const precision = Math.max(64, Math.ceil(-Math.log2(view.scale)) + 32);
+    const precision = Math.max(64, Math.ceil(-Math.log2(viewState.scale)) + 32);
 
     // Only recompute the orbit when inputs have actually changed
     if (
-      view.centerRe !== cachedCenterRe ||
-      view.centerIm !== cachedCenterIm ||
+      viewState.generation !== cachedGeneration ||
       cRe !== cachedCRe ||
       cIm !== cachedCIm ||
       precision !== cachedPrecision
     ) {
-      orbitBuf.compute(
-        view.centerRe,
-        view.centerIm,
-        cRe,
-        cIm,
-        precision,
-      );
-      cachedCenterRe = view.centerRe;
-      cachedCenterIm = view.centerIm;
+      viewState.compute_orbit(cRe, cIm, precision);
+      cachedGeneration = viewState.generation;
       cachedCRe = cRe;
       cachedCIm = cIm;
       cachedPrecision = precision;
@@ -127,12 +116,12 @@ async function main() {
 
     const orbit = new Float32Array(
       wasm.memory.buffer,
-      orbitBuf.ptr(),
+      viewState.orbit_ptr(),
       256 * 2,
     );
-    const len = orbitBuf.len();
+    const len = viewState.orbit_len();
     const t0 = performance.now();
-    renderer.render(view.scale, W, H, cRe, cIm, orbit, len);
+    renderer.render(viewState.scale, W, H, cRe, cIm, orbit, len);
     lastDrawMs = performance.now() - t0;
 
     if (drawDurations.length >= DRAW_SAMPLES) drawDurations.shift();
@@ -153,7 +142,7 @@ async function main() {
     canvas.width = W;
     canvas.height = H;
 
-    view = defaultView(W);
+    viewState.reset(W);
 
     renderer.resize(W, H);
     scheduleFrame();
@@ -162,12 +151,7 @@ async function main() {
   window.addEventListener('resize', onResize);
   onResize(); // trigger initial sizing
 
-  attachInputHandlers(
-    canvas,
-    () => view,
-    (v) => { view = v; },
-    scheduleFrame,
-  );
+  attachInputHandlers(canvas, viewState, scheduleFrame);
 }
 
 main().catch(console.error);

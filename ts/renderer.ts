@@ -1,5 +1,6 @@
 import { VERT_SRC, FRAG_SRC } from './shaders.js';
-import { MAX_ITER } from './orbit.js';
+
+const MAX_ITER = 256;
 
 export class Renderer {
   private gl: WebGL2RenderingContext;
