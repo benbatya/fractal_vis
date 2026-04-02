@@ -24,13 +24,20 @@ async function main() {
   const fpsEl = document.getElementById('fps')!;
   const frameTimes: number[] = [];
 
-  // Draw-time tracking — circular buffer of the last 100 render durations (ms)
+  // Draw-time tracking — circular buffer of the last 10 render durations (ms)
   const DRAW_SAMPLES = 10;
   const drawTimeEl = document.getElementById('draw-time')!;
   const drawDurations: number[] = [];
   let lastDrawMs = 0;
   let tSec = 0;
   let paused = false;
+
+  // Orbit cache — skip WASM recomputation when inputs haven't changed
+  let cachedCenterRe = '';
+  let cachedCenterIm = '';
+  let cachedCRe = NaN;
+  let cachedCIm = NaN;
+  let cachedPrecision = 0;
 
   const tsecEl = document.getElementById('tsec-display')!;
   const tsecSlider = document.getElementById('tsec-slider') as HTMLInputElement;
@@ -89,13 +96,29 @@ async function main() {
     const cIm = 0.7511 * Math.sin(omega * tSec);
 
     const precision = Math.max(64, Math.ceil(-Math.log2(view.scale)) + 32);
-    orbitBuf.compute(
-      view.centerRe.toString(),
-      view.centerIm.toString(),
-      cRe.toString(),
-      cIm.toString(),
-      precision,
-    );
+
+    // Only recompute the orbit when inputs have actually changed
+    if (
+      view.centerRe !== cachedCenterRe ||
+      view.centerIm !== cachedCenterIm ||
+      cRe !== cachedCRe ||
+      cIm !== cachedCIm ||
+      precision !== cachedPrecision
+    ) {
+      orbitBuf.compute(
+        view.centerRe,
+        view.centerIm,
+        cRe,
+        cIm,
+        precision,
+      );
+      cachedCenterRe = view.centerRe;
+      cachedCenterIm = view.centerIm;
+      cachedCRe = cRe;
+      cachedCIm = cIm;
+      cachedPrecision = precision;
+    }
+
     const orbit = new Float32Array(
       wasm.memory.buffer,
       orbitBuf.ptr(),
