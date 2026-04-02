@@ -41,6 +41,7 @@ async function main() {
 
   const tsecEl = document.getElementById('tsec-display')!;
   const tsecSlider = document.getElementById('tsec-slider') as HTMLInputElement;
+  const viewInfoEl = document.getElementById('view-info')!;
   const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement;
   pauseBtn.addEventListener('click', () => {
     paused = !paused;
@@ -51,6 +52,10 @@ async function main() {
     if (paused) {
       tSec = Math.min(1, Math.max(0, parseFloat(tsecSlider.value)));
     }
+  });
+  const resetViewBtn = document.getElementById('reset-view-btn') as HTMLButtonElement;
+  resetViewBtn.addEventListener('click', () => {
+    view = defaultView(W);
   });
 
   function updateFps(now: number) {
@@ -91,6 +96,7 @@ async function main() {
       tsecSlider.value = String(tSec);
     }
     tsecEl.textContent = `t ${tSec.toFixed(4)}`;
+    viewInfoEl.textContent = `re ${view.centerRe}\nim ${view.centerIm}\nscale ${view.scale.toExponential(4)}`;
     const omega = (2 * Math.PI);
     const cRe = 0.7511 * Math.cos(omega * tSec);
     const cIm = 0.7511 * Math.sin(omega * tSec);

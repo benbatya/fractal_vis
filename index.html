@@ -29,7 +29,7 @@
       align-items: flex-end;
       gap: 4px;
     }
-    #pause-btn {
+    #pause-btn, #reset-view-btn {
       font: 600 13px/1.5 monospace;
       background: rgba(0,0,0,0.5);
       color: #fff;
@@ -38,7 +38,7 @@
       cursor: pointer;
       border-radius: 3px;
     }
-    #pause-btn:hover { background: rgba(255,255,255,0.15); }
+    #pause-btn:hover, #reset-view-btn:hover { background: rgba(255,255,255,0.15); }
     #tsec-display {
       color: #fff;
       font: 600 13px/1.5 monospace;
@@ -51,6 +51,15 @@
       cursor: pointer;
     }
     #tsec-slider:disabled { opacity: 0.4; cursor: default; }
+    #view-info {
+      color: #fff;
+      font: 600 11px/1.4 monospace;
+      text-shadow: 0 1px 3px #000, 0 0 6px #000;
+      pointer-events: none;
+      user-select: none;
+      text-align: right;
+      white-space: pre;
+    }
   </style>
 </head>
 <body>
@@ -59,8 +68,10 @@
   <div id="draw-time"></div>
   <div id="controls">
     <button id="pause-btn">Pause</button>
+    <button id="reset-view-btn">Reset View</button>
     <div id="tsec-display"></div>
     <input id="tsec-slider" type="range" min="0" max="1" step="0.0001" value="0" disabled />
+    <div id="view-info"></div>
   </div>
   <script type="module" src="/ts/main.ts"></script>
 </body>
