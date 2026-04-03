@@ -5,6 +5,7 @@ Interactive Mandelbrot set explorer running in the browser. Rust (compiled to We
 ![Screenshot](Screenshot_20260306_104927.png)
 
 Try out the webapp at https://benbatya.github.io/fractal_vis/
+It supports touch and mouse interactions and runs on mobile and desktop.
 
 ## Architecture
 
